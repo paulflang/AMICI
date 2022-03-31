@@ -17,6 +17,7 @@ from amici.petab_import import import_petab_problem, PysbPetabProblem
 from amici.petab_objective import (
     simulate_petab, rdatas_to_measurement_df, create_parameterized_edatas)
 from amici import SteadyStateSensitivityMode_simulationFSA
+import pandas as pd
 
 logger = get_logger(__name__, logging.DEBUG)
 set_log_level(get_logger("amici.petab_import"), logging.DEBUG)
@@ -99,14 +100,24 @@ def _test_case(case, model_type):
     simulations_match = petabtests.evaluate_simulations(
         [simulation_df], gt_simulation_dfs, tol_simulations)
 
+    logger.log(logging.DEBUG if simulations_match else logging.ERROR,
+               f"Simulations: match = {simulations_match}")
+    if not simulations_match:
+        with pd.option_context('display.max_rows', None,
+                               'display.max_columns', None,
+                               'display.width', 200):
+            logger.log(logging.DEBUG, f"x_ss: {model.getStateIds()} "
+                                      f"{[rdata.x_ss for rdata in rdatas]}")
+            logger.log(logging.ERROR,
+                       f"Expected simulations:\n{gt_simulation_dfs}")
+            logger.log(logging.ERROR,
+                       f"Actual simulations:\n{simulation_df}")
     logger.log(logging.DEBUG if chi2s_match else logging.ERROR,
                f"CHI2: simulated: {chi2}, expected: {gt_chi2},"
                f" match = {chi2s_match}")
     logger.log(logging.DEBUG if simulations_match else logging.ERROR,
                f"LLH: simulated: {llh}, expected: {gt_llh}, "
                f"match = {llhs_match}")
-    logger.log(logging.DEBUG if simulations_match else logging.ERROR,
-               f"Simulations: match = {simulations_match}")
 
     check_derivatives(problem, model)
 
@@ -154,7 +165,7 @@ def run():
     n_skipped = 0
     for case in petabtests.CASES_LIST:
         try:
-            test_case(case)
+            test_case(case, 'sbml')
             n_success += 1
         except Skipped:
             n_skipped += 1
